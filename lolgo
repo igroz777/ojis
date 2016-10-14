@@ -1,0 +1,89 @@
+package main
+
+import (
+	"github.com/dgrijalva/jwt-go"
+	"github.com/julienschmidt/httprouter"
+	"html/template"
+	"log"
+	"math/rand"
+	"net/http"
+	"time"
+)
+
+var (
+	webTemplates = template.Must(template.ParseGlob("templates/*.html"))
+	secret       = []byte("serverkey")
+)
+
+func main() {
+	router := httprouter.New()
+	router.GET("/", indexHandler)
+
+	router.GET("/login", loginGetHandler)
+	router.POST("/login", loginPostHandler)
+
+	log.Fatal(http.ListenAndServe(":8080", router))
+}
+
+func loginGetHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	data := struct {
+	}{}
+	err := webTemplates.ExecuteTemplate(w, "login.html", &data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func loginPostHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+
+	if (username == "igroz7") && (password == "toor") {
+		rand.Seed(time.Now().UTC().UnixNano())
+		const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+		provByte := make([]byte, 20)
+		for i := 0; i < 20; i++ {
+			provByte[i] = chars[rand.Intn(len(chars))]
+		}
+		prov := string(provByte)
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"username": username,
+			"prov":     prov,
+		})
+		tokenString, err := token.SignedString(secret)
+		expiration := time.Now().Add(365 * 24 * time.Hour)
+
+		tokenCookie := http.Cookie{Name: "main", Value: tokenString, Expires: expiration, HttpOnly: true}
+		provCookie := http.Cookie{Name: "prov", Value: prov, Expires: expiration}
+		http.SetCookie(w, &tokenCookie)
+		http.SetCookie(w, &provCookie)
+		data := struct {
+			Username string
+			Tokenid  string
+		}{
+			username,
+			prov,
+		}
+		err = webTemplates.ExecuteTemplate(w, "index.html", &data)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	} else {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+}
+
+func verifyAuth(r *http.Request) {
+
+}
+
+func verifyRequest(r *http.Request) bool {
+	return false
+}

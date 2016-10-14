@@ -1,0 +1,7 @@
+{
+	"Server": {
+		"Hostname":"",
+		"HTTPSPort":80,
+		"TokenSecret":"blessed"
+	}
+}
